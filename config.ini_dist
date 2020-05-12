@@ -40,6 +40,9 @@ delete_rest_list = true
 exclude_list_re =
 ; list prefix that will be appended in front, eg: kelompok@iomarmochtar.com to list-kelompok@iomarmochtar.com
 list_prefix =
+; set lists default settings
+set_send_welcome_message = False
+set_max_message_size = 50
 
 ; hooks is some python code that will be executed after sync process are done, all hooks must be put in hooks folder
 ; script will run method main in hook file, see the example 

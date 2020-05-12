@@ -25,6 +25,7 @@ except ImportError:
 class M3Sync(object):
 
     __attrs = ['subscriber', 'owner', 'moderator']
+    __default_settings = ['send_welcome_message', 'max_message_size']
     logger = logging.getLogger('Mailman3Sync')
 
     def __init__(self, config):
@@ -146,6 +147,11 @@ class M3Sync(object):
                 self.logger.info(
                     "Result of hoook {0} is {1}".format(name, result))
 
+    def set_default_settings(self, mlist):
+        for setting in self.__default_settings:
+            mlist.settings[setting] = self.sync['set_{0}'.format(setting)]
+        mlist.settings.save()
+
     def main(self):
         # find group
         ret_attr = [
@@ -223,9 +229,8 @@ class M3Sync(object):
                 list_name, self.sync['default_list_domain']))
             try:
                 mlist = domain.create_list(list_name)
-                # disable welcome message
-                mlist.settings['send_welcome_message'] = False
-                mlist.settings.save()
+                # set list default settings
+                self.set_default_settings(mlist)
             except HTTPError:
                 self.logger.warning(
                     "List with name {0} already exists".format(list_name))
