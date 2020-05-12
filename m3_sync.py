@@ -183,11 +183,14 @@ class M3Sync(object):
                         self.ldap.search(
                             dn,
                             self.sync['member_filter'],
-                            attributes=[self.sync['mail_attr']],
+                            attributes=[self.sync['mail_attr'], self.sync['name_attr']],
                             search_scope=BASE
                         )
                         email = getattr(
                             self.ldap.entries[0], self.sync['mail_attr']).value
+                        display_name = getattr(
+                            self.ldap.entries[0], self.sync['name_attr']).value
+
 
                     if not email:
                         self.logger.warning('LDAP data for {}, is not an email or it doesn\'t has email attribute'.format(dn))
@@ -196,9 +199,12 @@ class M3Sync(object):
                     if 'replace_mail_domain' in self.sync and self.sync['replace_mail_domain']:
                         email = re.sub(r'@.*?$', '@{}'.format(self.sync['replace_mail_domain']), email)
 
+                    user_entry = {}
+                    #user_entry[email.lower()] = '"{0}"'.format(display_name)
+                    user_entry[email.lower()] = display_name
+
                     # lower case the email
-                    ldap_data[self.get_list(list_name)][attr].append(
-                        email.lower())
+                    ldap_data[self.get_list(list_name)][attr].append(user_entry)
 
         # make sure default domain exist
         self.logger.info('Creating default list domain: {0}'.format(
@@ -229,34 +235,38 @@ class M3Sync(object):
             mlist_name = mlist.fqdn_listname
             # subscriber
             for subscriber in datas['subscriber']:
+                subscriber_email = str(list(subscriber.keys())[0])
+                subscriber_name = str(list(subscriber.values())[0])
                 try:
-                    self.logger.info("Add subscriber {0} to list {1}".format(
-                        subscriber, mlist_name))
-                    mlist.subscribe(subscriber, pre_verified=True,
+                    self.logger.info("Add subscriber {0} {1} to list {2}".format(
+                        subscriber_name, subscriber_email, mlist_name))
+                    mlist.subscribe(subscriber_email, subscriber_name, pre_verified=True,
                                     pre_confirmed=True, pre_approved=True)
                 except HTTPError:
                     self.logger.warning("subscriber {0} already exist in {1}".format(
-                        subscriber, mlist_name))
+                        subscriber_email, mlist_name))
 
             # moderator
             for moderator in datas['moderator']:
+                moderator_email = str(list(moderator.keys())[0])
                 try:
                     self.logger.info(
-                        "Add moderator {0} to list {1}".format(moderator, mlist_name))
-                    mlist.add_moderator(moderator)
+                        "Add moderator {0} to list {1}".format(moderator_email, mlist_name))
+                    mlist.add_moderator(moderator_email)
                 except HTTPError:
                     self.logger.warning(
-                        "moderator {0} already exist in {1}".format(moderator, mlist_name))
+                        "moderator {0} already exist in {1}".format(moderator_email, mlist_name))
 
             # owner
             for owner in datas['owner']:
+                owner_email = str(list(owner.keys())[0])
                 try:
                     self.logger.info(
-                        "Add owner {0} to list {1}".format(owner, mlist_name))
-                    mlist.add_owner(owner)
+                        "Add owner {0} to list {1}".format(owner_email, mlist_name))
+                    mlist.add_owner(owner_email)
                 except HTTPError:
                     self.logger.warning(
-                        "owner {0} already exist in {1}".format(moderator, mlist_name))
+                        "owner {0} already exist in {1}".format(owner_email, mlist_name))
 
         # MAILMAN -> LDAP, check for diff then remove when it not exist
         # comparing member, if doesn't exist in ldap data then delete them
@@ -278,19 +288,23 @@ class M3Sync(object):
                 continue
 
             for member in mlist.members:
-                if member.email not in ldap_data[list_name]['subscriber']:
+                #print("The first key of dictionary is : " + str({k for d in ldap_data[list_name]['subscriber'] for k in d}))
+                ldapset = str({k for d in ldap_data[list_name]['subscriber'] for k in d})
+                if member.email not in ldapset:
                     self.logger.info("Unsubscribe {0} from list {1}".format(
                         member.email, list_name))
                     member.unsubscribe()
 
             for moderator in mlist.moderators:
-                if moderator.email not in ldap_data[list_name]['moderator']:
+                ldapset = str({k for d in ldap_data[list_name]['moderator'] for k in d})
+                if moderator.email not in ldapset:
                     self.logger.info(
                         "Removing moderator {0} from list {1}".format(moderator.email, list_name))
                     mlist.remove_moderator(moderator.email)
 
             for owner in mlist.owners:
-                if owner.email not in ldap_data[list_name]['owner']:
+                ldapset = str({k for d in ldap_data[list_name]['owner'] for k in d})
+                if owner.email not in ldapset:
                     self.logger.info(
                         "Removing owner {0} from list {1}".format(owner.email, list_name))
                     mlist.remove_owner(owner.email)
