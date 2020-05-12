@@ -200,7 +200,6 @@ class M3Sync(object):
                         email = re.sub(r'@.*?$', '@{}'.format(self.sync['replace_mail_domain']), email)
 
                     user_entry = {}
-                    #user_entry[email.lower()] = '"{0}"'.format(display_name)
                     user_entry[email.lower()] = display_name
 
                     # lower case the email
@@ -288,7 +287,6 @@ class M3Sync(object):
                 continue
 
             for member in mlist.members:
-                #print("The first key of dictionary is : " + str({k for d in ldap_data[list_name]['subscriber'] for k in d}))
                 ldapset = str({k for d in ldap_data[list_name]['subscriber'] for k in d})
                 if member.email not in ldapset:
                     self.logger.info("Unsubscribe {0} from list {1}".format(
