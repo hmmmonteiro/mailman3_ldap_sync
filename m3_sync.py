@@ -284,16 +284,16 @@ class M3Sync(object):
                     member.unsubscribe()
 
             for moderator in mlist.moderators:
-                if moderator not in ldap_data[list_name]['moderator']:
+                if moderator.email not in ldap_data[list_name]['moderator']:
                     self.logger.info(
-                        "Removing moderator {0} from list {1}".format(moderator, list_name))
-                    mlist.remove_moderator(moderator)
+                        "Removing moderator {0} from list {1}".format(moderator.email, list_name))
+                    mlist.remove_moderator(moderator.email)
 
             for owner in mlist.owners:
-                if owner not in ldap_data[list_name]['owner']:
+                if owner.email not in ldap_data[list_name]['owner']:
                     self.logger.info(
-                        "Removing owner {0} from list {1}".format(owner, list_name))
-                    mlist.remove_owner(owner)
+                        "Removing owner {0} from list {1}".format(owner.email, list_name))
+                    mlist.remove_owner(owner.email)
 
         self.exec_hooks(ldap_data)
 
