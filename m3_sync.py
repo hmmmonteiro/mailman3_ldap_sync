@@ -206,7 +206,7 @@ class M3Sync(object):
         try:
             self.m3.create_domain(self.sync['default_list_domain'])
         except HTTPError:
-            self.logger.warn('domain {0} already exist'.format(
+            self.logger.warning('domain {0} already exist'.format(
                 self.sync['default_list_domain']))
 
         domain = self.m3.get_domain(self.sync['default_list_domain'])
@@ -222,7 +222,7 @@ class M3Sync(object):
                 mlist.settings['send_welcome_message'] = False
                 mlist.settings.save()
             except HTTPError:
-                self.logger.warn(
+                self.logger.warning(
                     "List with name {0} already exists".format(list_name))
                 mlist = self.get_list_byname(domain, list_name)
 
@@ -235,7 +235,7 @@ class M3Sync(object):
                     mlist.subscribe(subscriber, pre_verified=True,
                                     pre_confirmed=True, pre_approved=True)
                 except HTTPError:
-                    self.logger.warn("subscriber {0} already exist in {1}".format(
+                    self.logger.warning("subscriber {0} already exist in {1}".format(
                         subscriber, mlist_name))
 
             # moderator
@@ -245,7 +245,7 @@ class M3Sync(object):
                         "Add moderator {0} to list {1}".format(moderator, mlist_name))
                     mlist.add_moderator(moderator)
                 except HTTPError:
-                    self.logger.warn(
+                    self.logger.warning(
                         "moderator {0} already exist in {1}".format(moderator, mlist_name))
 
             # owner
@@ -255,7 +255,7 @@ class M3Sync(object):
                         "Add owner {0} to list {1}".format(owner, mlist_name))
                     mlist.add_owner(owner)
                 except HTTPError:
-                    self.logger.warn(
+                    self.logger.warning(
                         "owner {0} already exist in {1}".format(moderator, mlist_name))
 
         # MAILMAN -> LDAP, check for diff then remove when it not exist
