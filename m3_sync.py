@@ -10,6 +10,7 @@ import sys
 import re
 import logging
 import traceback
+import csv
 from pprint import pprint
 from mailmanclient import Client as Mailman3Client
 from colorlog import ColoredFormatter
@@ -238,6 +239,17 @@ class M3Sync(object):
 
             mlist_name = mlist.fqdn_listname
             # subscriber
+            try:
+                with open('{0}.csv'.format(mlist_name), mode='r') as infile:
+                    reader = csv.reader(infile, skipinitialspace=True)
+                    extra_members = []
+                    for row in reader:
+                        extra_members.append({row[0]:row[1]})
+                    infile.close()
+            except OSError:
+                continue
+
+            datas['subscriber']+=extra_members
             for subscriber in datas['subscriber']:
                 subscriber_email = str(list(subscriber.keys())[0])
                 subscriber_name = str(list(subscriber.values())[0])
@@ -293,6 +305,18 @@ class M3Sync(object):
 
             for member in mlist.members:
                 ldapset = str({k for d in ldap_data[list_name]['subscriber'] for k in d})
+#                print ('LDAP SET = {0}'.format(ldapset))
+#                try:
+#                    with open('{0}.csv'.format(mlist.fqdn_listname), mode='r') as infile:
+#                        reader = csv.reader(infile)
+#                        extra_members = {rows[0] for rows in reader}
+#                        infile.close()
+#                except OSError:
+#                    continue
+#
+#                #ldapset+=str(extra_members)
+#                print ('LDAP SET+ = {0}'.format(ldapset))
+
                 if member.email not in ldapset:
                     self.logger.info("Unsubscribe {0} from list {1}".format(
                         member.email, list_name))
