@@ -305,18 +305,6 @@ class M3Sync(object):
 
             for member in mlist.members:
                 ldapset = str({k for d in ldap_data[list_name]['subscriber'] for k in d})
-#                print ('LDAP SET = {0}'.format(ldapset))
-#                try:
-#                    with open('{0}.csv'.format(mlist.fqdn_listname), mode='r') as infile:
-#                        reader = csv.reader(infile)
-#                        extra_members = {rows[0] for rows in reader}
-#                        infile.close()
-#                except OSError:
-#                    continue
-#
-#                #ldapset+=str(extra_members)
-#                print ('LDAP SET+ = {0}'.format(ldapset))
-
                 if member.email not in ldapset:
                     self.logger.info("Unsubscribe {0} from list {1}".format(
                         member.email, list_name))
