@@ -8,13 +8,14 @@ Features:
 - Adding some prefix in list name
 - Hooks, module that will be executed in the end of script
 - Excluding list for being deleted by regex pattern
-
+- User info loaded uppon subscription with optional sync
+- Extra non-LDAP members from csv files
 
 ## Installing
 
 - Clone repository
 ```sh
-git clone https://github.com/iomarmochtar/mailman3_ldap_sync
+git clone https://github.com/hmmmonteiro/mailman3_ldap_sync
 ```
 
 - Go to cloned directory
