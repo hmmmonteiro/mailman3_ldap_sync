@@ -1,8 +1,10 @@
 #!/usr/bin/env python
+#
+# Forked from Imam Omar Mochtar's m3_sync.py
 
-__author__ = ('Imam Omar Mochtar')
-__email__ = ('iomarmochtar@gmail.com',)
-__version__ = "1.0"
+__author__ = ('Hugo Monteiro')
+__email__ = ('monteiro.hugo@gmail.com',)
+__version__ = "1.2"
 __license__ = "GPL"
 
 import os
@@ -11,6 +13,9 @@ import re
 import logging
 import traceback
 import csv
+import time
+import random
+import string
 from pprint import pprint
 from mailmanclient import Client as Mailman3Client
 from colorlog import ColoredFormatter
@@ -79,6 +84,19 @@ class M3Sync(object):
             self.logger.error(
                 "Error while connecting to conf api: {0}".format(msg))
 
+    def set_preferences(self, src_prefs, tgt_prefs):
+        """Sets preferences on user."""
+        tgt_pref = None
+        for src_pref in src_prefs:
+            tgt_prefs[src_pref] = str(src_prefs[src_pref])
+        try:
+            tgt_prefs.save()
+        except Exception:
+            msg = traceback.format_exc(limit=1)
+            self.logger.error(
+                "Error while seeting preferences: {0}".format(msg))
+    #end set_preferences
+
     def init_logger(self):
         """
         Initiate log console & file (if enabled)
@@ -95,7 +113,7 @@ class M3Sync(object):
             }
         )
 
-        log_lvl = logging.DEBUG
+        log_lvl = self.sync['log_level']
 
         handler = logging.StreamHandler()
         handler.setFormatter(formatter)
@@ -104,12 +122,16 @@ class M3Sync(object):
         self.logger.setLevel(log_lvl)
 
         if 'log_file' in self.sync and self.sync['log_file']:
-            fh = logging.FileHandler(self.sync['log_file'], 'a')
-            fh.setLevel(log_lvl)
-            fh.setFormatter(
-                logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-            )
-            self.logger.addHandler(fh)
+            try:
+                fh = logging.FileHandler(self.sync['log_file'], 'a')
+                fh.setLevel(log_lvl)
+                fh.setFormatter(
+                    logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+                )
+                self.logger.addHandler(fh)
+            except OSError:
+                print('There was a problem opening file {0} for writting. Check file and path permissions and ownerships.'.format(self.sync['log_file']))
+                sys.exit()
 
     def get_list_byname(self, domain, list_name):
         """
@@ -153,6 +175,14 @@ class M3Sync(object):
             mlist.settings[setting] = self.sync['set_{0}'.format(setting)]
         mlist.settings.save()
 
+    def str_to_bool(self, string):
+        if string == 'True':
+            return True
+        elif string == 'False':
+            return False
+        else:
+             raise ValueError # evil ValueError that doesn't tell you what the wrong value was
+
     def main(self):
         # find group
         ret_attr = [
@@ -187,102 +217,190 @@ class M3Sync(object):
                     if email_re.search(dn):
                         email = dn
                     else:
+                        user_attrs = []
+                        for user_attr in [self.sync['mail_attr'], self.sync['name_attr'], self.sync['mailalias_attr'], self.sync['mluserprefs_attr']]:
+                            if user_attr is not '':
+                                user_attrs.append(user_attr)
                         self.ldap.search(
                             dn,
                             self.sync['member_filter'],
-                            attributes=[self.sync['mail_attr'], self.sync['name_attr']],
+                            #attributes=[self.sync['mail_attr'], self.sync['name_attr'], self.sync['mailalias_attr'], self.sync['mluserprefs_attr']],
+                            attributes=user_attrs,
                             search_scope=BASE
                         )
-                        email = getattr(
-                            self.ldap.entries[0], self.sync['mail_attr']).value
-                        display_name = getattr(
-                            self.ldap.entries[0], self.sync['name_attr']).value
 
+                        email = getattr(
+                            self.ldap.entries[0], self.sync['mail_attr']).value.lower()
+                        if 'replace_mail_domain' in self.sync and self.sync['replace_mail_domain']:
+                            email = re.sub(r'@.*?$', '@{}'.format(self.sync['replace_mail_domain']), email)
+                        user_entry = {}
+                        user_entry[email] = {}
+
+                        if self.sync['name_attr']:
+                            display_name = getattr(
+                                self.ldap.entries[0], self.sync['name_attr']).value
+                            user_entry[email]['display_name'] = display_name
+
+                        if self.sync['mailalias_attr']:
+                            email_alias = getattr(
+                                self.ldap.entries[0], self.sync['mailalias_attr']).value
+                            if not isinstance(email_alias, str):
+                                email_alias = str(';'.join(email_alias))
+                            user_entry[email]['email_alias'] = email_alias
+
+                        if self.sync['mluserprefs_attr']:
+                            mlist_user_prefs = getattr(
+                                self.ldap.entries[0], self.sync['mluserprefs_attr']).value
+                            if not isinstance(mlist_user_prefs, str):
+                                mlist_user_prefs = str(';'.join(mlist_user_prefs))
+                            user_entry[email]['mlist_user_prefs'] = mlist_user_prefs
 
                     if not email:
                         self.logger.warning('LDAP data for {}, is not an email or it doesn\'t has email attribute'.format(dn))
                         continue
 
-                    if 'replace_mail_domain' in self.sync and self.sync['replace_mail_domain']:
-                        email = re.sub(r'@.*?$', '@{}'.format(self.sync['replace_mail_domain']), email)
-
-                    user_entry = {}
-                    user_entry[email.lower()] = display_name
-
-                    # lower case the email
-                    ldap_data[self.get_list(list_name)][attr].append(user_entry)
+                    ldap_data[self.get_list(list_name)][attr] = dict(ldap_data[self.get_list(list_name)][attr], **user_entry)
 
         # make sure default domain exist
-        self.logger.info('Creating default list domain: {0}'.format(
-            self.sync['default_list_domain']))
-        try:
-            self.m3.create_domain(self.sync['default_list_domain'])
-        except HTTPError:
-            self.logger.warning('domain {0} already exist'.format(
+        if self.sync['default_list_domain'] not in str(self.m3.domains):
+            try:
+                self.logger.info('Creating default list domain: {0}'.format(
+                    self.sync['default_list_domain']))
+                self.m3.create_domain(self.sync['default_list_domain'])
+            except HTTPError:
+                self.logger.warning('Error while creating domain {0}'.format(
+                    self.sync['default_list_domain']))
+        else:
+            self.logger.debug('domain {0} already exist. Skipping.'.format(
                 self.sync['default_list_domain']))
 
         domain = self.m3.get_domain(self.sync['default_list_domain'])
 
         # LDAP -> MAILMAN add data to mailman
         for list_name, datas in ldap_data.items():
-            # Create List
-            self.logger.info("Create list {0} in domain {1}".format(
-                list_name, self.sync['default_list_domain']))
-            try:
-                mlist = domain.create_list(list_name)
-                # set list default settings
-                self.set_default_settings(mlist)
-            except HTTPError:
-                self.logger.warning(
+            if list_name not in str(self.m3.get_lists(advertised=True)):
+                # Create List
+                self.logger.info("Create list {0} in domain {1}".format(
+                    list_name, self.sync['default_list_domain']))
+                try:
+                    mlist = domain.create_list(list_name)
+                    # set list default settings
+                    self.set_default_settings(mlist)
+                except HTTPError:
+                    self.logger.warning(
+                        "Error while creating List {0}".format(list_name))
+                    mlist = self.get_list_byname(domain, list_name)
+            else:
+                self.logger.info(
                     "List with name {0} already exists".format(list_name))
-                mlist = self.get_list_byname(domain, list_name)
+
+            mlist = self.get_list_byname(domain, list_name)
 
             mlist_name = mlist.fqdn_listname
-            # subscriber
-            try:
-                with open('{0}.csv'.format(mlist_name), mode='r') as infile:
-                    reader = csv.reader(infile, skipinitialspace=True)
-                    extra_members = []
-                    for row in reader:
-                        extra_members.append({row[0]:row[1]})
-                    infile.close()
-            except OSError:
-                continue
 
-            datas['subscriber']+=extra_members
-            for subscriber in datas['subscriber']:
-                subscriber_email = str(list(subscriber.keys())[0])
-                subscriber_name = str(list(subscriber.values())[0])
+            # subscriber
+            if self.sync['load_csv_path']:
                 try:
-                    self.logger.info("Add subscriber {0} {1} to list {2}".format(
-                        subscriber_name, subscriber_email, mlist_name))
-                    mlist.subscribe(subscriber_email, subscriber_name, pre_verified=True,
-                                    pre_confirmed=True, pre_approved=True)
+                    with open('{0}/{1}.csv'.format(self.sync['load_csv_path'],mlist_name), mode='r') as infile:
+                        reader = csv.reader(infile, skipinitialspace=True)
+                        extra_members = {}
+                        for row in reader:
+                            extra_members[row[0]] = {}
+                            extra_members[row[0]]['display_name'] = row[1]
+                            extra_members[row[0]]['mlist_user_prefs'] = row[2]
+                            extra_members[row[0]]['email_alias'] = row[3]
+                        infile.close()
+                        datas['subscriber'] = dict(datas['subscriber'], **extra_members)
+                except OSError:
+                    continue
+
+            for subscriber in datas['subscriber'].keys():
+                sync_userdata = self.str_to_bool(self.sync['sync_userdata'])
+                subscriber_email = subscriber
+
+                try:
+                    user = self.m3.get_user(subscriber)
+
                 except HTTPError:
-                    self.logger.warning("subscriber {0} already exist in {1}".format(
-                        subscriber_email, mlist_name))
+                    self.logger.info("User {0} doesn't exist. Creating.".format(subscriber))
+                    try:
+                        password = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+                        user = self.m3.create_user(subscriber, password)
+                        user.add_address(subscriber,absorb_existing=True)
+
+                        if 'email_alias' in datas['subscriber'][subscriber].keys():
+                            if datas['subscriber'][subscriber]['email_alias'] is not '':
+                                for email_alias in datas['subscriber'][subscriber]['email_alias'].split(";"):
+                                    self.logger.info('    Adding address {0} to user {1}'.format(
+                                        email_alias, subscriber))
+                                    user.add_address(email_alias,absorb_existing=False)
+
+                    except HTTPError:
+                        self.logger.warning("There was an error while creating user {0}".format(
+                            subscriber))
+                        sync_userdata = False
+
+                if sync_userdata:
+                    if 'display_name' in datas['subscriber'][subscriber].keys():
+                        if datas['subscriber'][subscriber]['display_name'] is '':
+                            datas['subscriber'][subscriber]['display_name'] = None
+                        self.logger.info('    Syncing display_name of {0} to LDAP value {1}'.format(subscriber, datas['subscriber'][subscriber]['display_name']))
+                        user.display_name = str(datas['subscriber'][subscriber]['display_name'])
+                        
+                user.save()
+
+                if not mlist.is_member(subscriber):
+                    sync_userdata = True
+                    try:
+                        self.logger.info("Add subscriber {0} to list {1}.".format(
+                            subscriber_email, mlist_name))
+                        mlist.subscribe(subscriber_email, pre_verified=True, pre_confirmed=True, pre_approved=True)
+
+                    except HTTPError:
+                        self.logger.warning("There was an error while subscribing {0} to {1}".format(
+                            subscriber_email, mlist_name))
+                        sync_userdata = False
+                else:
+                     self.logger.info("subscriber {0} already exist in {1}".format(
+                         subscriber_email, mlist_name))
+
+                if sync_userdata:
+                    if 'mlist_user_prefs' in datas['subscriber'][subscriber].keys():
+                        if datas['subscriber'][subscriber]['mlist_user_prefs'].find('=') is not -1:
+                            self.logger.info("    Setting member {0} prefs on list {1}.".format(
+                                subscriber_email, mlist_name))
+                            prefs = dict(x.split("=") for x in datas['subscriber'][subscriber]['mlist_user_prefs'].split(";"))
+                            self.set_preferences(prefs, mlist.get_member(subscriber).preferences)
+
 
             # moderator
-            for moderator in datas['moderator']:
-                moderator_email = str(list(moderator.keys())[0])
-                try:
-                    self.logger.info(
-                        "Add moderator {0} to list {1}".format(moderator_email, mlist_name))
-                    mlist.add_moderator(moderator_email)
-                except HTTPError:
-                    self.logger.warning(
-                        "moderator {0} already exist in {1}".format(moderator_email, mlist_name))
+            for moderator in datas['moderator'].keys():
+                if not mlist.is_moderator(moderator):
+                    try:
+                        self.logger.info(
+                            "Add moderator {0} to list {1}".format(moderator, mlist_name))
+                        mlist.add_moderator(moderator)
+                    except HTTPError:
+                        self.logger.warning(
+                            "There was an error while setting {0} has moderator in {1}".format(moderator, mlist_name))
+                else:
+                    self.logger.info("moderator {0} already exist in {1}".format(
+                        moderator, mlist_name))
 
             # owner
-            for owner in datas['owner']:
-                owner_email = str(list(owner.keys())[0])
-                try:
-                    self.logger.info(
-                        "Add owner {0} to list {1}".format(owner_email, mlist_name))
-                    mlist.add_owner(owner_email)
-                except HTTPError:
-                    self.logger.warning(
-                        "owner {0} already exist in {1}".format(owner_email, mlist_name))
+            for owner in datas['owner'].keys():
+                if not mlist.is_owner(owner):
+                    try:
+                        self.logger.info(
+                            "Add owner {0} to list {1}".format(owner, mlist_name))
+                        mlist.add_owner(owner)
+                    except HTTPError:
+                        self.logger.warning(
+                            "There was an error while setting {0} has owner in {1}".format(owner, mlist_name))
+                else:
+                    self.logger.info("owner {0} already exist in {1}".format(
+                        owner, mlist_name))
+
 
         # MAILMAN -> LDAP, check for diff then remove when it not exist
         # comparing member, if doesn't exist in ldap data then delete them
@@ -304,21 +422,21 @@ class M3Sync(object):
                 continue
 
             for member in mlist.members:
-                ldapset = str({k for d in ldap_data[list_name]['subscriber'] for k in d})
+                ldapset = ldap_data[list_name]['subscriber'].keys()
                 if member.email not in ldapset:
                     self.logger.info("Unsubscribe {0} from list {1}".format(
                         member.email, list_name))
                     member.unsubscribe()
 
             for moderator in mlist.moderators:
-                ldapset = str({k for d in ldap_data[list_name]['moderator'] for k in d})
+                ldapset = ldap_data[list_name]['moderator'].keys()
                 if moderator.email not in ldapset:
                     self.logger.info(
                         "Removing moderator {0} from list {1}".format(moderator.email, list_name))
                     mlist.remove_moderator(moderator.email)
 
             for owner in mlist.owners:
-                ldapset = str({k for d in ldap_data[list_name]['owner'] for k in d})
+                ldapset = ldap_data[list_name]['owner'].keys()
                 if owner.email not in ldapset:
                     self.logger.info(
                         "Removing owner {0} from list {1}".format(owner.email, list_name))

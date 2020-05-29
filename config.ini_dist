@@ -7,39 +7,80 @@ pwd = restpass
 
 ; ldap auth 
 [ldap]
-host = 192.168.1.161
+host = ldap.example.com
 port = 389
 ssl = false
-bind_dn = cn=admin,dc=iomarmochtar,dc=com
-bind_pwd = P@ssw0rd
+; leave blank if you don't need to authenticate to query LDAP
+bind_dn =
+bind_pwd =
 
 [sync]
+; log level for this program. possible values are CRITICAL, ERROR, WARNING, INFO, DEBUG, NOTSET
+log_level = DEBUG
+
 ; log file for this script, put blank if you don't use
 log_file = /var/log/mailman3_ldapsync.log
+
 ; default domain, will be named after the list. eg: kelompok@iomarmochtar.com
 default_list_domain = iomarmochtar.com
+
 ; replacing owner, subscriber and moderator email domain, leave blank if not used
-replace_mail_domain = iomarmochtar.com
-group_filter = (&(objectClass=group)(msExchEnableModeration=TRUE))
-search_base = dc=iomarmochtar,dc=com
+replace_mail_domain =
+
+; LDAP filter for eligible groups to sync
+group_filter = (&(objectClass=posixGroup)(mail=*@lists.example.com))
+
+; LDAP search base
+search_base = dc=example,dc=org
+
 ; group member attribute from group filter result that will be used as list subscriber
 subscriber_attr = member
+
 ; <same as above but for list owner >
-owner_attr = managedBy
+owner_attr = owner
+
 ; <same as above but for list moderator >
-moderator_attr = msExchModeratedByLink
+moderator_attr = owner
+
 ; member filter if result of subscriber or owner or moderator returned DN, this is used in AD
-member_filter = (objectClass=person)
+member_filter = (objectClass=inetOrgPerson)
+
+; LDAP attribute holding user email address
 mail_attr = mail
+
+; LDAP attribute holding user's name
 name_attr = displayName
+
+; multi-valued LDAP attribute holding users alternative email addresses
+;mailalias_attr =
+
+; multi-valued LDAP attribute holding set of default membership preferences, in the form value=key
+; examples are delivery_status=by_user; acknowledge_posts=False; receive_own_postings=False; delivery_mode=regular; hide_address=True; receive_list_copy=False
+;mluserprefs_attr =
+
+; set to True/False depending if you want to sync the users name, email alias and membership preferences in each run
+; with False those values are only set uppon user creation/subscription
+sync_userdata = False
+
 ; name of list, if there is a space character then it will be replaced by dot (.) then lower cased
 group_name_attr = cn
+
 ; set this value to true for deleting the unmatch list in mailman
 delete_rest_list = true
+
 ; fill this with regex pattern for exclude list deletion, if delete_rest_list is enabled (true)
 exclude_list_re =
+
 ; list prefix that will be appended in front, eg: kelompok@iomarmochtar.com to list-kelompok@iomarmochtar.com
 list_prefix =
+
+; load lists extra members csv path
+; program will look for a macthing listname@lists.example.com.csv file in this path
+; csv file format is email,name,membership_preferences,alias_emails
+; both membership_preferences and alias_emails are ; separated ex:
+; john@example.com,John Doe,delivery_status=by_user;receive_list_copy=False,john.doe@example.com;jdoe@someother.com
+;load_csv_path = ./lists/
+
 ; set lists default settings
 set_send_welcome_message = False
 set_max_message_size = 50
