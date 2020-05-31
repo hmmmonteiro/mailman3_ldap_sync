@@ -302,7 +302,7 @@ class M3Sync(object):
             if self.sync['load_csv_path']:
                 try:
                     with open('{0}/{1}.csv'.format(self.sync['load_csv_path'],mlist_name), mode='r') as infile:
-                        reader = csv.reader(infile, skipinitialspace=True)
+                        reader = csv.reader(filter(lambda row: row[0]!='#', infile), skipinitialspace=True)
                         extra_members = {}
                         for row in reader:
                             extra_members[row[0]] = {}
