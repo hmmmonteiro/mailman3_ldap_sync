@@ -374,6 +374,9 @@ class M3Sync(object):
 
 
             # moderator
+            if self.sync['set_moderator']:
+                for x in self.sync['set_moderator'].split(";"):
+                    datas['moderator'][x] = True
             for moderator in datas['moderator'].keys():
                 if not mlist.is_moderator(moderator):
                     try:
@@ -388,6 +391,9 @@ class M3Sync(object):
                         moderator, mlist_name))
 
             # owner
+            if self.sync['set_owner']:
+                for x in self.sync['set_owner'].split(";"):
+                    datas['owner'][x] = True
             for owner in datas['owner'].keys():
                 if not mlist.is_owner(owner):
                     try:

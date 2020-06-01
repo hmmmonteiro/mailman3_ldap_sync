@@ -83,7 +83,11 @@ list_prefix =
 
 ; set lists default settings
 set_send_welcome_message = False
-set_max_message_size = 50
+;set_max_message_size = 50
+;set_moderator = joe@example.com;jane@example.com
+set_moderator =
+;set_owner = john@example.com;mary@example.com
+set_owner =
 
 ; hooks is some python code that will be executed after sync process are done, all hooks must be put in hooks folder
 ; script will run method main in hook file, see the example 
