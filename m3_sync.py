@@ -181,10 +181,10 @@ class M3Sync(object):
     def str_to_bool(self, string):
         if string == 'True':
             return True
-        elif string == 'False':
+        elif string == 'False' or string == '':
             return False
         else:
-             raise ValueError # evil ValueError that doesn't tell you what the wrong value was
+            raise ValueError
 
     def main(self):
         __ldap_attrs = self.set_ldap_attrs()
@@ -316,7 +316,10 @@ class M3Sync(object):
                     continue
 
             for subscriber in datas['subscriber'].keys():
-                sync_userdata = self.str_to_bool(self.sync['sync_userdata'])
+                if 'sync_userdata' in self.sync:
+                    sync_userdata = self.str_to_bool(self.sync['sync_userdata'])
+                else:
+                    sync_userdata = False
                 subscriber_email = subscriber
 
                 try:
