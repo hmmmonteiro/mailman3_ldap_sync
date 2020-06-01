@@ -84,8 +84,11 @@ list_prefix =
 ; set lists default settings
 set_send_welcome_message = False
 ;set_max_message_size = 50
+
+; define default lists moderators, cumulative to ldap defined moderators, if any
 ;set_moderator = joe@example.com;jane@example.com
 set_moderator =
+; define default lists owners, cumulative to ldap defined owners, if any
 ;set_owner = john@example.com;mary@example.com
 set_owner =
 

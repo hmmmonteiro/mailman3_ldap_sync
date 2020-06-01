@@ -170,6 +170,9 @@ class M3Sync(object):
                 self.logger.info(
                     "Result of hoook {0} is {1}".format(name, result))
 
+    def set_ldap_attrs(self):
+        return list(filter(None, [ x if '{0}_attr'.format(x) in self.sync else None for x in self.__attrs]))
+
     def set_default_settings(self, mlist):
         for setting in self.__default_settings:
             mlist.settings[setting] = self.sync['set_{0}'.format(setting)]
@@ -184,11 +187,10 @@ class M3Sync(object):
              raise ValueError # evil ValueError that doesn't tell you what the wrong value was
 
     def main(self):
-        # find group
-        ret_attr = [
-            self.sync['group_name_attr'], self.sync['subscriber_attr'], 
-            self.sync['owner_attr'], self.sync['moderator_attr']
-        ]
+        __ldap_attrs = self.set_ldap_attrs()
+        ret_attr = list([self.sync['group_name_attr']])
+        for ldap_attr in __ldap_attrs:
+            ret_attr.append(self.sync['{0}_attr'.format(ldap_attr)])
         search_result = self.ldap.search(
             self.sync['search_base'],
             self.sync['group_filter'],
@@ -207,10 +209,10 @@ class M3Sync(object):
 
             #
             ldap_data[self.get_list(list_name)] = dict(
-                zip(self.__attrs, [[] for x in range(len(self.__attrs))])
+                zip(__ldap_attrs, [[] for x in range(len(__ldap_attrs))])
             )
 
-            for attr in self.__attrs:
+            for attr in __ldap_attrs:
                 for dn in getattr(group, self.sync['{0}_attr'.format(attr)]):
                     # if it's not email form then search by it's DN. this is used if quering group member agains AD
                     email = None
@@ -224,7 +226,6 @@ class M3Sync(object):
                         self.ldap.search(
                             dn,
                             self.sync['member_filter'],
-                            #attributes=[self.sync['mail_attr'], self.sync['name_attr'], self.sync['mailalias_attr'], self.sync['mluserprefs_attr']],
                             attributes=user_attrs,
                             search_scope=BASE
                         )
@@ -374,9 +375,13 @@ class M3Sync(object):
 
 
             # moderator
-            if self.sync['set_moderator']:
+            if 'moderator' not in datas.keys():
+                datas['moderator'] = {}
+
+            if 'set_moderator' in self.sync and self.sync['set_moderator']:
                 for x in self.sync['set_moderator'].split(";"):
                     datas['moderator'][x] = True
+                    
             for moderator in datas['moderator'].keys():
                 if not mlist.is_moderator(moderator):
                     try:
@@ -391,9 +396,13 @@ class M3Sync(object):
                         moderator, mlist_name))
 
             # owner
-            if self.sync['set_owner']:
+            if 'owner' not in datas.keys():
+                datas['owner'] = {}
+           
+            if 'set_owner' in self.sync and self.sync['set_owner']:
                 for x in self.sync['set_owner'].split(";"):
                     datas['owner'][x] = True
+                    
             for owner in datas['owner'].keys():
                 if not mlist.is_owner(owner):
                     try:
