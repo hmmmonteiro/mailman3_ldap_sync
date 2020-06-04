@@ -245,16 +245,18 @@ class M3Sync(object):
                         if self.sync['mailalias_attr']:
                             email_alias = getattr(
                                 self.ldap.entries[0], self.sync['mailalias_attr']).value
-                            if not isinstance(email_alias, str):
-                                email_alias = str(';'.join(email_alias))
-                            user_entry[email]['email_alias'] = email_alias
+                            if email_alias is not None:
+                                if not isinstance(email_alias, str):
+                                    email_alias = str(';'.join(email_alias))
+                                user_entry[email]['email_alias'] = email_alias
 
                         if self.sync['mluserprefs_attr']:
                             mlist_user_prefs = getattr(
                                 self.ldap.entries[0], self.sync['mluserprefs_attr']).value
-                            if not isinstance(mlist_user_prefs, str):
-                                mlist_user_prefs = str(';'.join(mlist_user_prefs))
-                            user_entry[email]['mlist_user_prefs'] = mlist_user_prefs
+                            if mlist_user_prefs is not None:
+                                if not isinstance(mlist_user_prefs, str):
+                                    mlist_user_prefs = str(';'.join(mlist_user_prefs))
+                                user_entry[email]['mlist_user_prefs'] = mlist_user_prefs
 
                     if not email:
                         self.logger.warning('LDAP data for {}, is not an email or it doesn\'t has email attribute'.format(dn))
@@ -314,7 +316,7 @@ class M3Sync(object):
                         infile.close()
                         datas['subscriber'] = dict(datas['subscriber'], **extra_members)
                 except OSError:
-                    continue
+                    pass
 
                 # csv extra members specific to the list
                 try:
@@ -329,7 +331,7 @@ class M3Sync(object):
                         infile.close()
                         datas['subscriber'] = dict(datas['subscriber'], **extra_members)
                 except OSError:
-                    continue
+                    pass
 
             for subscriber in datas['subscriber'].keys():
                 if 'sync_userdata' in self.sync:
