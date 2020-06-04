@@ -301,6 +301,22 @@ class M3Sync(object):
 
             # subscriber
             if self.sync['load_csv_path']:
+                # csv extra members for all lists
+                try:
+                    with open('{0}/foreverylist.csv'.format(self.sync['load_csv_path'],mlist_name), mode='r') as infile:
+                        reader = csv.reader(filter(lambda row: row[0]!='#', infile), skipinitialspace=True)
+                        extra_members = {}
+                        for row in reader:
+                            extra_members[row[0]] = {}
+                            extra_members[row[0]]['display_name'] = row[1]
+                            extra_members[row[0]]['mlist_user_prefs'] = row[2]
+                            extra_members[row[0]]['email_alias'] = row[3]
+                        infile.close()
+                        datas['subscriber'] = dict(datas['subscriber'], **extra_members)
+                except OSError:
+                    continue
+
+                # csv extra members specific to the list
                 try:
                     with open('{0}/{1}.csv'.format(self.sync['load_csv_path'],mlist_name), mode='r') as infile:
                         reader = csv.reader(filter(lambda row: row[0]!='#', infile), skipinitialspace=True)
