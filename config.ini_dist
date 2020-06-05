@@ -79,7 +79,12 @@ list_prefix =
 ; csv file format is email,name,membership_preferences,alias_emails
 ; both membership_preferences and alias_emails are ; separated ex:
 ; john@example.com,John Doe,delivery_status=by_user;receive_list_copy=False,john.doe@example.com;jdoe@someother.com
-;load_csv_path = ./lists/
+;csv_load_path = ./lists/
+
+; loads extra members into ALL LDAP lists
+; csv format is the same as in csv_load_path files
+; file will be loaded from csv_load_path too so you just need to provide a filename
+transversal_members_csv = foreverylist.csv
 
 ; set lists default settings
 set_send_welcome_message = False
