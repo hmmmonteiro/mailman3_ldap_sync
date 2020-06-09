@@ -387,14 +387,20 @@ class M3Sync(object):
                      self.logger.info("subscriber {0} already exist in {1}".format(
                          subscriber_email, mlist_name))
 
-                if sync_userdata:
+                if mlist.is_member(subscriber):
+                    list_member = mlist.get_member(subscriber)
+
+                if sync_userdata and list_member:
                     if 'mlist_user_prefs' in datas['subscriber'][subscriber].keys():
                         if datas['subscriber'][subscriber]['mlist_user_prefs'].find('=') is not -1:
                             self.logger.info("    Setting member {0} prefs on list {1}.".format(
                                 subscriber_email, mlist_name))
                             prefs = dict(x.split("=") for x in datas['subscriber'][subscriber]['mlist_user_prefs'].split(";"))
-                            self.set_preferences(prefs, mlist.get_member(subscriber).preferences)
-
+                            if 'moderation_action' in prefs.keys():
+                                list_member.moderation_action = prefs['moderation_action']
+                                list_member.save()
+                                del prefs['moderation_action']
+                            self.set_preferences(prefs, list_member.preferences)
 
             # moderator
             if 'moderator' not in datas.keys():
