@@ -350,18 +350,41 @@ class M3Sync(object):
                         password = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
                         user = self.m3.create_user(subscriber, password)
                         user.add_address(subscriber,absorb_existing=True)
-
-                        if 'email_alias' in datas['subscriber'][subscriber].keys():
-                            if datas['subscriber'][subscriber]['email_alias'] is not '':
-                                for email_alias in datas['subscriber'][subscriber]['email_alias'].split(";"):
-                                    self.logger.info('    Adding address {0} to user {1}'.format(
-                                        email_alias, subscriber))
-                                    user.add_address(email_alias,absorb_existing=False)
+                        self.m3.get_address(subscriber).verify()
 
                     except HTTPError:
                         self.logger.warning("There was an error while creating user {0}".format(
                             subscriber))
                         sync_userdata = False
+
+                if sync_userdata:
+                    for address in user.addresses:
+                        address = str(address)
+                        if address != subscriber:
+                            if 'email_alias' not in datas['subscriber'][subscriber].keys():
+                                self.logger.info('    User {0} has no email aliases. Removing address {1}'.format(
+                                    subscriber,address))
+                                user.addresses.remove(address)
+                            elif address not in datas['subscriber'][subscriber]['email_alias'].split(";"):
+                                self.logger.info('    Address {0} not associated to user {1}. Removing.'.format(
+                                    address,subscriber))
+                                user.addresses.remove(address)
+
+                    if ('email_alias' in datas['subscriber'][subscriber].keys() and
+                        datas['subscriber'][subscriber]['email_alias'] is not ''):
+
+                            subscriber_email_aliases = datas['subscriber'][subscriber]['email_alias'].split(";")
+
+                            for email_alias in subscriber_email_aliases:
+                                try:
+                                    user.add_address(email_alias,absorb_existing=False)
+                                    self.m3.get_address(email_alias).verify()
+                                    self.logger.info('    Adding address {0} to user {1}'.format(
+                                        email_alias, subscriber))
+
+                                except HTTPError:
+                                    self.logger.info('    Address {0} is already assigned. Skipping...'.format(
+                                        email_alias))
 
                 if sync_userdata:
                     if 'display_name' in datas['subscriber'][subscriber].keys():
