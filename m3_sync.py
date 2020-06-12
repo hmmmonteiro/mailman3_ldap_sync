@@ -335,6 +335,9 @@ class M3Sync(object):
                     pass
 
             for subscriber in datas['subscriber'].keys():
+
+                self.logger.info('Processing subscriber {0}'.format(subscriber))
+
                 if 'sync_userdata' in self.sync:
                     sync_userdata = self.str_to_bool(self.sync['sync_userdata'])
                 else:
@@ -345,7 +348,7 @@ class M3Sync(object):
                     user = self.m3.get_user(subscriber)
 
                 except HTTPError:
-                    self.logger.info("User {0} doesn't exist. Creating.".format(subscriber))
+                    self.logger.info("    User {0} doesn't exist. Creating.".format(subscriber))
                     try:
                         password = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
                         user = self.m3.create_user(subscriber, password)
@@ -353,7 +356,7 @@ class M3Sync(object):
                         self.m3.get_address(subscriber).verify()
 
                     except HTTPError:
-                        self.logger.warning("There was an error while creating user {0}".format(
+                        self.logger.warning("    There was an error while creating user {0}".format(
                             subscriber))
                         sync_userdata = False
 
@@ -379,7 +382,7 @@ class M3Sync(object):
                                 try:
                                     user.add_address(email_alias,absorb_existing=False)
                                     self.m3.get_address(email_alias).verify()
-                                    self.logger.info('    Adding address {0} to user {1}'.format(
+                                    self.logger.info('    Adding and verifying address {0} to user {1}'.format(
                                         email_alias, subscriber))
 
                                 except HTTPError:
@@ -403,11 +406,11 @@ class M3Sync(object):
                         mlist.subscribe(subscriber_email, pre_verified=True, pre_confirmed=True, pre_approved=True)
 
                     except HTTPError:
-                        self.logger.warning("There was an error while subscribing {0} to {1}".format(
+                        self.logger.warning("    There was an error while subscribing {0} to {1}".format(
                             subscriber_email, mlist_name))
                         sync_userdata = False
                 else:
-                     self.logger.info("subscriber {0} already exist in {1}".format(
+                     self.logger.info("    subscriber {0} already exist in {1}".format(
                          subscriber_email, mlist_name))
 
                 if mlist.is_member(subscriber):
