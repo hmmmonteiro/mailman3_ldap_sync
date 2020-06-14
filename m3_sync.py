@@ -216,6 +216,7 @@ class M3Sync(object):
                 for dn in getattr(group, self.sync['{0}_attr'.format(attr)]):
                     # if it's not email form then search by it's DN. this is used if quering group member agains AD
                     email = None
+                    user_entry = {}
                     if email_re.search(dn):
                         email = dn
                     else:
@@ -229,12 +230,18 @@ class M3Sync(object):
                             attributes=user_attrs,
                             search_scope=BASE
                         )
-
                         email = getattr(
-                            self.ldap.entries[0], self.sync['mail_attr']).value.lower()
+                            self.ldap.entries[0], self.sync['mail_attr']).value
+
+                        if not email:
+                            self.logger.warning('LDAP data for {}, is not an email or it doesn\'t have email attribute'.format(dn))
+                            continue
+
+                        email = email.lower()
+                        
                         if 'replace_mail_domain' in self.sync and self.sync['replace_mail_domain']:
                             email = re.sub(r'@.*?$', '@{}'.format(self.sync['replace_mail_domain']), email)
-                        user_entry = {}
+                            
                         user_entry[email] = {}
 
                         if self.sync['name_attr']:
@@ -257,10 +264,6 @@ class M3Sync(object):
                                 if not isinstance(mlist_user_prefs, str):
                                     mlist_user_prefs = str(';'.join(mlist_user_prefs))
                                 user_entry[email]['mlist_user_prefs'] = mlist_user_prefs
-
-                    if not email:
-                        self.logger.warning('LDAP data for {}, is not an email or it doesn\'t has email attribute'.format(dn))
-                        continue
 
                     ldap_data[self.get_list(list_name)][attr] = dict(ldap_data[self.get_list(list_name)][attr], **user_entry)
 
@@ -434,8 +437,8 @@ class M3Sync(object):
 
             if 'set_moderator' in self.sync and self.sync['set_moderator']:
                 for x in self.sync['set_moderator'].split(";"):
-                    datas['moderator'][x] = True
-                    
+                    datas['moderator'] = dict(datas['moderator'], **{x: True})
+
             for moderator in datas['moderator'].keys():
                 if not mlist.is_moderator(moderator):
                     try:
@@ -455,7 +458,7 @@ class M3Sync(object):
            
             if 'set_owner' in self.sync and self.sync['set_owner']:
                 for x in self.sync['set_owner'].split(";"):
-                    datas['owner'][x] = True
+                    datas['owner'] = dict(datas['owner'], **{x: True})
                     
             for owner in datas['owner'].keys():
                 if not mlist.is_owner(owner):
