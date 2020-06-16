@@ -282,9 +282,14 @@ class M3Sync(object):
 
         domain = self.m3.get_domain(self.sync['default_list_domain'])
 
+        synched_subscribers = []
+
         # LDAP -> MAILMAN add data to mailman
         for list_name, datas in ldap_data.items():
-            if list_name not in str(self.m3.get_lists(advertised=True)):
+            all_list_names = []
+            for single_list in self.m3.lists:
+                all_list_names.append(single_list.list_name)
+            if list_name not in all_list_names:
                 # Create List
                 self.logger.info("Create list {0} in domain {1}".format(
                     list_name, self.sync['default_list_domain']))
@@ -337,7 +342,21 @@ class M3Sync(object):
                 except OSError:
                     pass
 
-            for subscriber in datas['subscriber'].keys():
+            if 'sync_userdata' in self.sync:
+                sync_userdata = self.str_to_bool(self.sync['sync_userdata'])
+            else:
+                sync_userdata = False
+
+            if sync_userdata:
+                subscribers_list = datas['subscriber'].keys()
+            else:
+                subscribed_list = []
+                for subscribed_member in mlist.members:
+                    subscribed_list.append(subscribed_member.email)
+
+                subscribers_list = (list(set(datas['subscriber'].keys()) - set(subscribed_list)))
+
+            for subscriber in subscribers_list:
 
                 self.logger.info('Processing subscriber {0}'.format(subscriber))
 
@@ -363,7 +382,7 @@ class M3Sync(object):
                             subscriber))
                         sync_userdata = False
 
-                if sync_userdata:
+                if sync_userdata and subscriber not in synched_subscribers:
                     for address in user.addresses:
                         address = str(address)
                         if address != subscriber:
@@ -392,13 +411,16 @@ class M3Sync(object):
                                     self.logger.info('    Address {0} is already assigned. Skipping...'.format(
                                         email_alias))
 
-                if sync_userdata:
+                if sync_userdata and subscriber not in synched_subscribers:
                     if 'display_name' in datas['subscriber'][subscriber].keys():
                         if datas['subscriber'][subscriber]['display_name'] is '':
                             datas['subscriber'][subscriber]['display_name'] = None
                         self.logger.info('    Syncing display_name of {0} to LDAP value {1}'.format(subscriber, datas['subscriber'][subscriber]['display_name']))
                         user.display_name = str(datas['subscriber'][subscriber]['display_name'])
-                        
+
+                if subscriber not in synched_subscribers:
+                    synched_subscribers.append(subscriber)
+
                 user.save()
 
                 if not mlist.is_member(subscriber):
