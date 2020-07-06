@@ -31,7 +31,6 @@ except ImportError:
 class M3Sync(object):
 
     __attrs = ['subscriber', 'owner', 'moderator']
-    __default_settings = ['send_welcome_message', 'max_message_size']
     logger = logging.getLogger('Mailman3Sync')
 
     def __init__(self, config):
@@ -174,9 +173,11 @@ class M3Sync(object):
         return list(filter(None, [ x if '{0}_attr'.format(x) in self.sync else None for x in self.__attrs]))
 
     def set_default_settings(self, mlist):
-        for setting in self.__default_settings:
-            mlist.settings[setting] = self.sync['set_{0}'.format(setting)]
-        mlist.settings.save()
+        if 'default_mlist_settings' in self.sync and self.sync['default_mlist_settings']:
+            mlistprefs = dict(x.split("=") for x in self.sync['default_mlist_settings'].split(";"))
+            for setting in mlistprefs.keys():
+                mlist.settings[setting] = mlistprefs[setting]
+            mlist.settings.save()
 
     def str_to_bool(self, string):
         if string == 'True':
