@@ -308,6 +308,14 @@ class M3Sync(object):
 
             mlist = self.get_list_byname(domain, list_name)
 
+            if 'sync_listdata' in self.sync:
+                sync_listdata = self.str_to_bool(self.sync['sync_listdata'])
+            else:
+                sync_listdata = False
+
+            if sync_listdata:
+                self.set_default_settings(mlist)
+
             mlist_name = mlist.fqdn_listname
 
             # subscriber
